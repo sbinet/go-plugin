@@ -1,6 +1,7 @@
 package plugin_test
 
 import (
+	"math"
 	"testing"
 	"unsafe"
 
@@ -97,5 +98,30 @@ func TestLibmFabs(t *testing.T) {
 	err = p.Close()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func BenchmarkFabs(b *testing.B) {
+	p, err := plugin.Open(libmName)
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer p.Close()
+
+	var fabs func(float64) float64
+	err = p.LookupC("fabs", &fabs)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = fabs(float64(-i))
+	}
+}
+
+func BenchmarkAbs(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = math.Abs(float64(-i))
 	}
 }
