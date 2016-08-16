@@ -1,6 +1,6 @@
-package ffi_test
+package plugin_test
 
-var (
+const (
 	libcName = "libc.so.6"
 	libmName = "libm.so.6"
 )

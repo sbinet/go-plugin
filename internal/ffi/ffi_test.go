@@ -1,12 +1,13 @@
 package ffi_test
 
 import (
-	"math"
 	"path"
 	"reflect"
 	"runtime"
 	"testing"
+	"unsafe"
 
+	"github.com/sbinet/go-plugin/internal/dl"
 	"github.com/sbinet/go-plugin/internal/ffi"
 )
 
@@ -18,20 +19,49 @@ func eq(t *testing.T, ref, chk interface{}) {
 	}
 }
 
-type info struct {
-	fct string // fct name
-	arg float64
-	res float64 // expected value
+func TestCIF(t *testing.T) {
+	cif, err := ffi.New(ffi.Float64, []ffi.Type{ffi.Float64})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lib, err := dl.Open(libmName, dl.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lib.Close()
+
+	fptr, err := lib.Symbol("fabs")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		cval = -42.0
+		cret = 0.0
+	)
+
+	cif.Call(fptr, unsafe.Pointer(&cret), unsafe.Pointer(&cval))
+	if cret != 42 {
+		t.Fatalf("error calling fabs(-42): got=%v. want=42\n", cret)
+	}
 }
 
+/*
 func TestFFIMathf(t *testing.T) {
-	lib, err := ffi.NewLibrary(libm_name)
+	t.Skip("not compatible with new CGo rules")
 
+	lib, err := ffi.NewLibrary(libm_name)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
+	defer lib.Close()
 
-	tests := []info{
+	tests := []struct {
+		fct  string
+		arg  float64
+		want float64
+	}{
 		{"cos", 0., math.Cos(0.)},
 		{"cos", math.Pi / 2., math.Cos(math.Pi / 2.)},
 		{"sin", 0., math.Sin(0.)},
@@ -44,8 +74,8 @@ func TestFFIMathf(t *testing.T) {
 			t.Errorf("could not locate function [%s]: %v", info.fct, err)
 		}
 		out := f(info.arg).Float()
-		if math.Abs(out-info.res) > 1e-16 {
-			t.Errorf("expected [%v], got [%v] (fct=%v(%v))", info.res, out, info.fct, info.arg)
+		if math.Abs(out-info.want) > 1e-16 {
+			t.Errorf("expected [%v], got [%v] (fct=%v(%v))", info.want, out, info.fct, info.arg)
 		}
 
 	}
@@ -57,11 +87,13 @@ func TestFFIMathf(t *testing.T) {
 }
 
 func TestFFIMathi(t *testing.T) {
-	lib, err := ffi.NewLibrary(libm_name)
+	t.Skip("not compatible with new CGo rules")
 
+	lib, err := ffi.NewLibrary(libm_name)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
+	defer lib.Close()
 
 	f, err := lib.Fct("abs", ffi.C_int, []ffi.Type{ffi.C_int})
 	if err != nil {
@@ -89,11 +121,13 @@ func TestFFIMathi(t *testing.T) {
 }
 
 func TestFFIStrCmp(t *testing.T) {
-	lib, err := ffi.NewLibrary(libc_name)
+	t.Skip("not compatible with new CGo rules")
 
+	lib, err := ffi.NewLibrary(libc_name)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
+	defer lib.Close()
 
 	//int strcmp(const char* cs, const char* ct);
 	f, err := lib.Fct("strcmp", ffi.C_int, []ffi.Type{ffi.C_pointer, ffi.C_pointer})
@@ -126,11 +160,13 @@ func TestFFIStrCmp(t *testing.T) {
 }
 
 func TestFFIStrLen(t *testing.T) {
-	lib, err := ffi.NewLibrary(libc_name)
+	t.Skip("not compatible with new CGo rules")
 
+	lib, err := ffi.NewLibrary(libc_name)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
+	defer lib.Close()
 
 	//size_t strlen(const char* cs);
 	f, err := lib.Fct("strlen", ffi.C_int, []ffi.Type{ffi.C_pointer})
@@ -153,11 +189,13 @@ func TestFFIStrLen(t *testing.T) {
 }
 
 func TestFFIStrCat(t *testing.T) {
-	lib, err := ffi.NewLibrary(libc_name)
+	t.Skip("not compatible with new CGo rules")
 
+	lib, err := ffi.NewLibrary(libc_name)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
+	defer lib.Close()
 
 	//char* strcat(char* s, const char* ct);
 	f, err := lib.Fct("strcat", ffi.C_pointer, []ffi.Type{ffi.C_pointer, ffi.C_pointer})
@@ -180,5 +218,4 @@ func TestFFIStrCat(t *testing.T) {
 		t.Errorf("error closing [%s]: %v", libc_name, err)
 	}
 }
-
-// EOF
+*/

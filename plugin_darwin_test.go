@@ -1,6 +1,6 @@
-package ffi_test
+package plugin_test
 
-var (
+const (
 	libcName = "libc.dylib"
 	libmName = "libm.dylib"
 )

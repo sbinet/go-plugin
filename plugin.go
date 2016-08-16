@@ -1,14 +1,16 @@
 package plugin
 
-//#include <string.h>
+//#include <stdlib.h>
 import "C"
 
 import (
 	"errors"
 	"fmt"
 	"reflect"
+	"unsafe"
 
 	"github.com/sbinet/go-plugin/internal/dl"
+	"github.com/sbinet/go-plugin/internal/ffi"
 )
 
 var (
@@ -45,14 +47,24 @@ func (p Plugin) LookupC(name string, valptr interface{}) error {
 		return err
 	}
 	rv := reflect.ValueOf(valptr)
-	if !rv.IsValid() || rv.Kind() != reflect.Ptr {
+	if !rv.IsValid() {
 		return errNotPtr
 	}
-	if rv.IsNil() {
-		return errNilPtr
+
+	var val reflect.Value
+	switch rv.Kind() {
+	case reflect.Ptr:
+		if rv.IsNil() {
+			return errNilPtr
+		}
+		val = rv.Elem()
+	case reflect.UnsafePointer:
+		return fmt.Errorf("plugin: unexpected unafe.Pointer")
+	default:
+		fmt.Printf("err: kind=%v\n", rv.Kind())
+		return errNotPtr
 	}
 
-	val := rv.Elem()
 	switch val.Kind() {
 	case reflect.Int:
 		val.SetInt(int64(*(*int)(addr)))
@@ -90,6 +102,28 @@ func (p Plugin) LookupC(name string, valptr interface{}) error {
 		val.SetString(C.GoString(*(**C.char)(addr)))
 	case reflect.UnsafePointer:
 		val.SetPointer(addr)
+	case reflect.Func:
+		ft := val.Type()
+		cif, err := ffi.NewFrom(ft)
+		if err != nil {
+			return err
+		}
+		fct := reflect.MakeFunc(val.Type(), func(in []reflect.Value) []reflect.Value {
+			var (
+				ret   []reflect.Value
+				cret  unsafe.Pointer
+				cargs = ffi.NewArgsFrom(in)
+			)
+			defer cargs.Release()
+			if ft.NumOut() == 1 {
+				ret = append(ret, reflect.New(ft.Out(0)).Elem())
+				cret = unsafe.Pointer(ret[0].UnsafeAddr())
+			}
+			cif.Call(addr, cret, cargs.C())
+			return ret
+		})
+		val.Set(fct)
+		return nil
 
 	default:
 		return fmt.Errorf("plugin: invalid type %T", valptr)
